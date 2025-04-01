@@ -1,0 +1,7 @@
+telethon
+python-dateutil
+pandas
+pytesseract
+python-magic
+tqdm
+python-dotenv
