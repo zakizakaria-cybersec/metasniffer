@@ -9,7 +9,8 @@ from telethon.tl.types import Message
 import logging
 from pathlib import Path
 from dotenv import load_dotenv
-
+from tabulate import tabulate
+import asyncio
 from extractors.metadata_extractor import MetadataExtractor
 from telegram.channel_downloader import ChannelDownloader
 from utils.file_utils import ensure_dir, cleanup_files
@@ -21,6 +22,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+#todo: calculate total of odf files analyzed
+#todo: keep the files for author with the most occurence
+#todo: add another argument to show logs data, else show only progress bar
+#todo: add argument to allow save the statistics in a csv file
+#todo: insert another stats to show the amount of files the channel posted per day (containing date)
 class MetaSniffer:
     def __init__(self, api_id: str, api_hash: str, session_name: str = "meta_sniffer"):
         self.channel_downloader = ChannelDownloader(api_id, api_hash, session_name)
@@ -74,7 +80,15 @@ def main():
     parser.add_argument('channel', help='Telegram channel name or ID')
     parser.add_argument('--before', help='Filter files before date (YYYY-MM-DD)')
     parser.add_argument('--after', help='Filter files after date (YYYY-MM-DD)')
+    parser.add_argument('--verbose', action='store_true', help='Display detailed logs instead of progress bar')
     args = parser.parse_args()
+
+     # Configure logging based on verbosity
+    if args.verbose:
+        logging.getLogger().setLevel(logging.DEBUG)
+    else:
+        logging.getLogger().setLevel(logging.WARNING)
+
 
     # Load environment variables
     load_dotenv()
@@ -92,11 +106,22 @@ def main():
 
     # Create MetaSniffer instance and run analysis
     sniffer = MetaSniffer(api_id, api_hash)
-    import asyncio
     results = asyncio.run(sniffer.analyze_channel(args.channel, before_date, after_date))
     
     print("\nAuthor Statistics:")
-    print(results.to_string(index=False))
+    if not results.empty:
+        # Use tabulate to format the DataFrame
+        formatted_table = tabulate(
+            results,
+            headers="keys",
+            tablefmt="grid",
+            showindex=False,
+            stralign="center"
+        )
+        print(formatted_table)
+    else:
+        print("No data available.")
 
 if __name__ == "__main__":
     main()
+    

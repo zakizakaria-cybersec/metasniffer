@@ -5,3 +5,4 @@ pytesseract
 python-magic
 tqdm
 python-dotenv
+tabulate

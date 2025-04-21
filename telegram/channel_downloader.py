@@ -13,41 +13,40 @@ class ChannelDownloader:
         downloaded_files = []
         try:
             await self.client.start()
-            
+
             # Ensure download_dir is a Path object and exists
             download_dir = Path(download_dir)
             download_dir.mkdir(parents=True, exist_ok=True)
-            
-            # Convert dates to UTC timezone-aware datetime objects if they're provided
-            if before_date and before_date.tzinfo is None:
-                before_date = before_date.replace(tzinfo=timezone.utc)
-            if after_date and after_date.tzinfo is None:
-                after_date = after_date.replace(tzinfo=timezone.utc)
-            
+
+            # Convert dates to UTC timezone-aware datetime objects if provided
+            if before_date:
+                before_date = before_date.astimezone(timezone.utc)
+            if after_date:
+                after_date = after_date.astimezone(timezone.utc)
+
             async for message in self.client.iter_messages(channel):
-                if message.file and message.file.name and message.file.name.endswith(".pdf") and message.file.mime_type == "application/pdf":
-                    if (before_date is None or message.date < before_date) and \
-                    (after_date is None or message.date > after_date):
-                        try:
-                            filename = message.file.name
-                            file_path = download_dir / filename
-                            
-                            # Log MIME type for debugging
-                            logger.info(f"Downloading pdf file: {filename})")
-                            
-                            # Download the file
-                            await self.client.download_media(message, file_path)
-                            downloaded_files.append(file_path)
-                            
-                        except Exception as e:
-                            logger.error(f"Error downloading file: {e}")
-                            continue
+                if (
+                    message.file
+                    and message.file.name
+                    and message.file.name.endswith(".pdf")
+                    and message.file.mime_type == "application/pdf"
+                    and (before_date is None or message.date < before_date)
+                    and (after_date is None or message.date > after_date)
+                ):
+                    try:
+                        file_path = download_dir / message.file.name
+                        logger.info(f"Downloading PDF file: {message.file.name}")
+                        await self.client.download_media(message, file_path)
+                        downloaded_files.append(file_path)
+                    except Exception as e:
+                        logger.error(f"Failed to download {message.file.name}: {e}")
                 else:
-                    logger.warning(f"Skipped message ID {message.id}: No valid file attached.")
+                    logger.debug(f"Skipped message ID {message.id}: No valid PDF file or outside date range.")
+
         except Exception as e:
             logger.error(f"Error downloading from channel: {e}")
-            
+
         finally:
             await self.client.disconnect()
-            
+
         return downloaded_files
